@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include petromark *.css
+recursive-include petromark *.csv
+recursive-include petromark *.html
+recursive-include petromark *.ico
+recursive-include petromark *.js
+recursive-include petromark *.json
+recursive-include petromark *.md
+recursive-include petromark *.png
+recursive-include petromark *.py
+recursive-include petromark *.svg
+recursive-include petromark *.txt
+recursive-exclude petromark *.pyc
