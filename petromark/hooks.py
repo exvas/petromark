@@ -165,6 +165,23 @@ user_data_fields = [
 		"doctype": "{doctype_4}"
 	}
 ]
+# Export Fixtures
+fixtures = [
+    {
+        "doctype": "Custom Field",
+        "filters": [
+            [
+                "name",
+                "in",
+                [
+                    "Payment Entry-sales_person",
+					"Sales Invoice-ref_no",
+					"Material Request-salesman",
+                ]
+            ]
+        ]
+    }
+]
 
 # Authentication and authorization
 # --------------------------------
