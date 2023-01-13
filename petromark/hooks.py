@@ -177,6 +177,7 @@ fixtures = [
                     "Payment Entry-sales_person",
 					"Sales Invoice-ref_no",
 					"Material Request-salesman",
+					"Item-oem_part_number",
                 ]
             ]
         ]
