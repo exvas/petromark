@@ -19,7 +19,7 @@ def execute(filters=None):
 				'paid_amount':li.paid_amount,
 			})	
 		data.append(row)
-		if li.status=="Paid":
+		if li.status=="Paid" or li.outstanding_amount:
 			si_name=li.get('sales_invoice_reference')
 			pay_lists=get_pay_lists(filters,si_name)
 			for l in pay_lists:
@@ -102,7 +102,8 @@ def get_columns():
    			"fieldtype": "Currency",
    			"label": "Paid Amount",
 			"width":120 
-  		},	
+  		},
+		
 	]
 def get_lists(filters):
 	
@@ -158,6 +159,7 @@ def get_payment_list(filters):
 		filters=conditions
 		data.append(dic_p)
 	return data
+
 def get_conditions(filters):
 	conditions=""
 	if filters.get("from_date") and filters.get("to_date"):
