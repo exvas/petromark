@@ -53,6 +53,24 @@ def execute(filters=None):
 		})
 		data.append(row)
 	return columns,data
+	# else:
+	# 	other_date_payment_list=get_payment_list(filters)
+	# 	for l in other_date_payment_list:
+	# 		row=frappe._dict({
+	# 			'date':l.date,
+	# 			'sales_person':l.sales_person,
+	# 			'sales_invoice_reference':l.sales_invoice_reference,
+	# 			'reference':l.pname,
+	# 			'grand_total':l.grand_total,
+	# 			'outstanding_amount':l.outstanding_amount,
+	# 			'paid_amount':l.paid_amount,
+				
+				
+	# 		})
+			
+		
+	# 		data.append(row)
+	# 	return columns,data
 
 def get_columns():
 	return[
@@ -103,6 +121,13 @@ def get_columns():
    			"label": "Paid Amount",
 			"width":120 
   		},
+		# {
+   		# 	"fieldname": "company",
+   		# 	"fieldtype": "Link",
+   		# 	"label": "Company",
+		# 	"options": "Company",
+		# 	"width":120 
+  		# },	
 		
 	]
 def get_lists(filters):
@@ -128,7 +153,7 @@ def get_pay_lists(filters,si_name):
 	pe.company,
 	pe.party_name as customer,
 	pe.sales_person,
-	pe.total_allocated_amount as paid_amount
+	p.allocated_amount as paid_amount
 	FROM `tabPayment Entry` AS pe INNER JOIN `tabPayment Entry Reference` AS p
 	ON p.parent=pe.name WHERE p.reference_name=%s {0}""".format(conditions),si_name,as_dict=1)
 	for dic_p in parent:
@@ -145,7 +170,7 @@ def get_payment_list(filters):
 	pe.company,
 	pe.sales_person,
 	pe.party_name as customer,
-	pe.total_allocated_amount as paid_amount,
+	p.allocated_amount as paid_amount,
 	pe.name as pname,
 	p.reference_name as sales_invoice_reference,
 	p.reference_doctype,
@@ -154,11 +179,39 @@ def get_payment_list(filters):
 	from `tabPayment Entry` as pe inner join `tabPayment Entry Reference` as p on pe.name=p.parent 
 	inner join `tabSales Invoice` as s on p.reference_name=s.name where p.reference_doctype='Sales Invoice' and
 	pe.posting_date!=s.posting_date {0}""".format(conditions),as_dict=1)
+	# parent=frappe.db.sql("""select 
+	# pe.posting_date as date,
+	# pe.company,
+	# pe.sales_person,
+	# pe.total_allocated_amount as paid_amount,
+	# pe.name pname,
+	# p.reference_name sales_invoice_reference,
+	# p.reference_doctype,
+	# s.posting_date,
+	# s.name,
+	# from `tabPayment Entry` as pe inner join `tabPayment Entry Reference` as p 
+	# on pe.name=p.parent 
+	# inner join `tabSales Invoice` as s on s.name=p.reference_name where p.reference_doctype='Sales Invoice' {0}""".format(conditions),as_dict=1)
 	for dic_p in parent:
 		dic_p["indent"] = 0
 		filters=conditions
 		data.append(dic_p)
 	return data
+	# parent=frappe.db.sql("""SELECT 
+	# s1.posting_date as date,
+	# s1.company,
+	# st1.sales_person,
+	# p1.parent as pname,
+	# p1.allocated_amount as paid_amount
+	# FROM `tabSales Invoice` AS s1 
+	# INNER JOIN `tabSales Team` AS st1 ON s1.name=st1.parent  
+	# INNER JOIN `tabPayment Entry Reference` AS p1 ON p1.reference_name=s1.name 
+	# where s1.docstatus=1 and p1.reference_name=%s {0} """.format(conditions),si_name,as_dict=1)
+	# for dic_p in parent:
+	# 	dic_p["indent"] = 0
+	# 	filters=conditions
+	# 	data.append(dic_p)
+	# return data
 
 def get_conditions(filters):
 	conditions=""
