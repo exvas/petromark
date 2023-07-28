@@ -155,7 +155,7 @@ def get_pay_lists(filters,si_name):
 	pe.sales_person,
 	p.allocated_amount as paid_amount
 	FROM `tabPayment Entry` AS pe INNER JOIN `tabPayment Entry Reference` AS p
-	ON p.parent=pe.name WHERE p.reference_name=%s {0}""".format(conditions),si_name,as_dict=1)
+	ON p.parent=pe.name WHERE p.reference_name=%s and p.docstatus=1 {0}""".format(conditions),si_name,as_dict=1)
 	for dic_p in parent:
 		dic_p["indent"] = 0
 		filters=conditions
@@ -178,7 +178,7 @@ def get_payment_list(filters):
 	s.name 
 	from `tabPayment Entry` as pe inner join `tabPayment Entry Reference` as p on pe.name=p.parent 
 	inner join `tabSales Invoice` as s on p.reference_name=s.name where p.reference_doctype='Sales Invoice' and
-	pe.posting_date!=s.posting_date {0}""".format(conditions),as_dict=1)
+	pe.posting_date!=s.posting_date and pe.docstatus=1 {0}""".format(conditions),as_dict=1)
 	# parent=frappe.db.sql("""select 
 	# pe.posting_date as date,
 	# pe.company,
