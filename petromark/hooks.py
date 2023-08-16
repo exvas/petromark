@@ -178,6 +178,12 @@ fixtures = [
 					"Sales Invoice-ref_no",
 					"Material Request-salesman",
 					"Item-oem_part_number",
+					"Sales Invoice Item-item_last_purchase_rate",
+					"Sales Invoice Item-item_purchase_rate",
+					"Sales Invoice Item-item_valuation_rate",
+					"Sales Invoice Item-last_customer_rate",
+					"Sales Invoice Item-item_last_rates",
+					"Sales Invoice Item-column_break_100",
                 ]
             ]
         ]
