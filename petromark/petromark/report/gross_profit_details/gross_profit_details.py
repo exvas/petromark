@@ -3,23 +3,57 @@
 
 import frappe
 from frappe import _
-def get_columns():
-	return [
+def get_columns(filters):
+	columns = [
 		{"label": _("Sales Invoice"), "fieldname": "sales_invoice", "fieldtype": "Data" },
 		{"label": _("Sales Invoice Date"), "fieldname": "sales_invoice_date", "fieldtype": "Date" },
+
+	]
+	if not filters.get("update_stock"):
+		columns += [
+			{"label": _("Delivery Note"), "fieldname": "delivery_note", "fieldtype": "Data", "width": 180},
+			{"label": _("Delivery Note Date"), "fieldname": "delivery_note_date", "fieldtype": "Date"},
+		]
+
+	columns += [
 		{"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link", "options": "Customer"},
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Data"},
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data"},
 		{"label": _("Warehouse"), "fieldname": "warehouse", "fieldtype": "Data"},
+
+	]
+
+	if not filters.get("update_stock"):
+		columns += [
+			{"label": _("DN Qty"), "fieldname": "dn_qty", "fieldtype": "Float"},
+		]
+	columns += [
 		{"label": _("SI Qty"), "fieldname": "si_qty", "fieldtype": "Float"},
 		{"label": _("Selling Amount"), "fieldname": "selling_amount", "fieldtype": "Currency"},
-		{"label": _("COGS"), "fieldname": "cogs", "fieldtype": "Currency","width": 100},
+		{"label": _("COGS"), "fieldname": "cogs", "fieldtype": "Currency", "width": 100},
 		{"label": _("Gross Profit"), "fieldname": "gross_profit", "fieldtype": "Data"},
 		{"label": _("Gross Profit Percent"), "fieldname": "gross_profit_percent", "fieldtype": "Data"}
 	]
-def execute(filters=None):
-	columns, data = get_columns(), []
+	return columns
+def get_conditions(filters):
+	conditions = ""
 
+	if filters.get("from_date") and filters.get("to_date"):
+		conditions += " and SI.posting_date BETWEEN '{0}' and '{1}'".format(filters.get("from_date"), filters.get("to_date"))
+
+	if filters.get("customer"):
+		conditions += " and SI.customer='{0}'".format(filters.get("customer"))
+
+	if filters.get("sales_invoice"):
+		conditions += " and SI.name='{0}'".format(filters.get("sales_invoice"))
+
+	if filters.get("update_stock"):
+		conditions += " and SI.update_stock='{0}'".format(filters.get("update_stock"))
+	return conditions
+
+def execute(filters=None):
+	columns, data = get_columns(filters), []
+	conditions = get_conditions(filters)
 	sales_invoice = frappe.db.sql(""" SELECT 
   								SI.name as sales_invoice,
   								SI.posting_date as sales_invoice_date,
@@ -27,31 +61,25 @@ def execute(filters=None):
   								SI.total_qty as si_qty,
   								SI.grand_total as selling_amount
 							FROM `tabSales Invoice` SI
-							WHERE SI.docstatus=1 and SI.update_stock=1
+							WHERE SI.docstatus=1 {0}
 							ORDER BY SI.name ASC
-						""",as_dict=1)
+						""".format(conditions),as_dict=1)
 	sales_invoice_items = frappe.db.sql(""" SELECT * FROm `tabSales Invoice Item`""",as_dict=1)
-	# delivery_notes = frappe.db.sql(""" SELECT
-  	# 							SI.name as delivery_note,
-  	# 							SI.posting_date,
-  	# 							SII.item_code,
-  	# 							SII.item_name,
-  	# 							SII.qty as dn_qty,
-  	# 							SII.name as dn_name,
-  	# 							SII.parent
-	# 						FROM `tabDelivery Note` SI
-	# 						INNER JOIN `tabDelivery Note Item` SII ON SII.parent = SI.name
-	# 						WHERE SI.docstatus=1
-	# 						ORDER BY SI.name,SII.item_code ASC
-	# 					""",as_dict=1)
+	delivery_note_items = frappe.db.sql(""" SELECT DNI.*, DN.posting_date FROM `tabDelivery Note`  DN 
+ 											INNER JOIN `tabDelivery Note Item` DNI ON DNI.parent = DN.name
+ 											""",as_dict=1)
+
 	stock_ledger_entry = frappe.db.sql(""" SELECT * FROM `tabStock Ledger Entry` WHERE is_cancelled=0""",as_dict=1)
 	data = []
 	for idx,x in enumerate(sales_invoice):
 		data.append(x)
-		sii = get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry)
+		sii,total,gross_profit = get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items)
+		x['cogs'] = total
+		x['gross_profit'] = gross_profit
+		x['gross_profit_percent'] = round(gross_profit / x.selling_amount,2)
 		if len(sii) > 0:
 			for xxx in sii:
-				data.append({
+				objj = {
 					"item_code": xxx.item_code,
 					"item_name": xxx.item_name,
 					"si_qty": xxx.qty,
@@ -59,17 +87,36 @@ def execute(filters=None):
 					"cogs": xxx['cogs'] * xxx.qty,
 					"selling_amount": xxx.amount,
 					"gross_profit": xxx.amount - (xxx['cogs'] * xxx.qty),
-					"gross_profit_percent": (( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100
-				})
+					"gross_profit_percent": round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)
+				}
+				if not filters.get("update_stock"):
+					objj['dn_qty'] = xxx['dn_qty']
+					objj['delivery_note'] = xxx['delivery_note']
+					objj['delivery_note_date'] = xxx['posting_date']
+				if not filters.get("update_stock") and filters.get("delivery_note"):
+					if objj['delivery_note'] == filters.get("delivery_note"):
+						data.append(objj)
+					else:
+						data.pop()
+						break
+				else:
+					data.append(objj)
 	return columns, data
 
-def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry):
+def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items):
 	items = []
+	total = 0
+	gross_profit = 0
+	print("=============================")
 	for xx in sales_invoice_items:
 		if x.sales_invoice == xx.parent:
 			xx['cogs'] = get_cogs(stock_ledger_entry,xx)
+			total +=  (xx['cogs'] * xx.qty)
+			gross_profit += round(xx.amount - (xx['cogs'] * xx.qty),2)
+			if not filters.get("update_stock"):
+				xx['dn_qty'],xx['delivery_note'],xx['posting_date'] = get_dn_details(xx,delivery_note_items)
 			items.append(xx)
-	return items
+	return items,total,gross_profit
 
 def get_cogs(stock_ledger_entry,xx):
 
@@ -77,3 +124,20 @@ def get_cogs(stock_ledger_entry,xx):
 		if xx.name == x.voucher_detail_no:
 			return x.incoming_rate
 	return 0
+
+def get_dn_details(xx,delivery_note_items):
+	print("++++++++++++++++++++++++++++++++++++++++++++++")
+	print(xx)
+	print('dn_detail' not in xx)
+	if 'dn_detail' not in xx:
+		for x in delivery_note_items:
+			if x.si_detail == xx.name:
+				return x.qty,x.parent,x.posting_date
+	else:
+
+		for x in delivery_note_items:
+			if x.name == xx.dn_detail:
+				print(xx.dn_detail)
+				print(x.name)
+				return x.qty,x.parent,x.posting_date
+	return 0,"",""

@@ -21,16 +21,24 @@ frappe.query_reports["Gross Profit Details"] = {
 			"label": __("Customer"),
 			"fieldtype": "Link",
 			"options": "Customer"
-		},{
+		},
+		{
 			"fieldname":"sales_invoice",
 			"label": __("Sales Invoice"),
 			"fieldtype": "Link",
 			"options": "Sales Invoice"
-		},{
+		},
+		{
 			"fieldname":"delivery_note",
 			"label": __("Delivery Note"),
 			"fieldtype": "Link",
 			"options": "Delivery Note"
+		},
+		{
+			"fieldname":"update_stock",
+			"label": __("Update Stock"),
+			"fieldtype": "Check",
+			"default": 1
 		},
 	],
 };
