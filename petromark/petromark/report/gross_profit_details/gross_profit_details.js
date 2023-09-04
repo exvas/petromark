@@ -41,4 +41,18 @@ frappe.query_reports["Gross Profit Details"] = {
 			"default": 1
 		},
 	],
+	"formatter": function(value, row, column, data, default_formatter) {
+
+
+		value = default_formatter(value, row, column, data);
+
+		if (data.bold) {
+
+			value = $(`<span>${value}</span>`);
+			var $value = $(value).css("font-weight", "bold");
+			value = $value.wrap("<p></p>").parent().html();
+		}
+
+		return value;
+	},
 };

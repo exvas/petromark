@@ -31,7 +31,7 @@ def get_columns(filters):
 		{"label": _("SI Qty"), "fieldname": "si_qty", "fieldtype": "Float"},
 		{"label": _("Selling Amount"), "fieldname": "selling_amount", "fieldtype": "Currency"},
 		{"label": _("COGS"), "fieldname": "cogs", "fieldtype": "Currency", "width": 100},
-		{"label": _("Gross Profit"), "fieldname": "gross_profit", "fieldtype": "Data"},
+		{"label": _("Gross Profit"), "fieldname": "gross_profit", "fieldtype": "Currency"},
 		{"label": _("Gross Profit Percent"), "fieldname": "gross_profit_percent", "fieldtype": "Data"}
 	]
 	return columns
@@ -71,12 +71,25 @@ def execute(filters=None):
 
 	stock_ledger_entry = frappe.db.sql(""" SELECT * FROM `tabStock Ledger Entry` WHERE is_cancelled=0""",as_dict=1)
 	data = []
+	totals = {
+		"sales_invoice": "Total",
+		"si_qty": 0,
+		"selling_amount": 0,
+		"cogs": 0,
+		"gross_profit": 0,
+		'bold': True
+	}
 	for idx,x in enumerate(sales_invoice):
 		data.append(x)
 		sii,total,gross_profit = get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items)
 		x['cogs'] = total
 		x['gross_profit'] = gross_profit
-		x['gross_profit_percent'] = round(gross_profit / x.selling_amount,2)
+		x['gross_profit_percent'] = str(round(gross_profit / x.selling_amount * 100,2)) + "%"
+		x['bold'] = True
+		totals['si_qty'] += x['si_qty']
+		totals['selling_amount'] += x['selling_amount']
+		totals['cogs'] += x['cogs']
+		totals['gross_profit'] += x['gross_profit']
 		if len(sii) > 0:
 			for xxx in sii:
 				objj = {
@@ -87,7 +100,7 @@ def execute(filters=None):
 					"cogs": xxx['cogs'] * xxx.qty,
 					"selling_amount": xxx.amount,
 					"gross_profit": xxx.amount - (xxx['cogs'] * xxx.qty),
-					"gross_profit_percent": round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)
+					"gross_profit_percent": str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)) + "%"
 				}
 				if not filters.get("update_stock"):
 					objj['dn_qty'] = xxx['dn_qty']
@@ -101,6 +114,8 @@ def execute(filters=None):
 						break
 				else:
 					data.append(objj)
+	totals['gross_profit_percent'] = str(round(totals['gross_profit'] / totals['selling_amount'] * 100,2)) + "%"
+	data.append(totals)
 	return columns, data
 
 def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items):
