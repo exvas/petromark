@@ -81,11 +81,14 @@ def execute(filters=None):
 	}
 	for idx,x in enumerate(sales_invoice):
 		data.append(x)
-		sii,total,gross_profit = get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items)
+		sii,total,gross_profit,dn_name,dn_date = get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items)
+
 		x['cogs'] = total
 		x['gross_profit'] = gross_profit
 		x['gross_profit_percent'] = str(round(gross_profit / x.selling_amount * 100,2)) + "%"
 		x['bold'] = True
+		x['delivery_note'] = dn_name
+		x['delivery_note_date'] = dn_date
 		totals['si_qty'] += x['si_qty']
 		totals['selling_amount'] += x['selling_amount']
 		totals['cogs'] += x['cogs']
@@ -100,28 +103,27 @@ def execute(filters=None):
 					"cogs": xxx['cogs'] * xxx.qty,
 					"selling_amount": xxx.amount,
 					"gross_profit": xxx.amount - (xxx['cogs'] * xxx.qty),
-					"gross_profit_percent": str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)) + "%"
+					"gross_profit_percent": str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)) + "%",
+					"parent_dn": dn_name
 				}
 				if not filters.get("update_stock"):
 					objj['dn_qty'] = xxx['dn_qty']
-					objj['delivery_note'] = xxx['delivery_note']
-					objj['delivery_note_date'] = xxx['posting_date']
-				if not filters.get("update_stock") and filters.get("delivery_note"):
-					if objj['delivery_note'] == filters.get("delivery_note"):
-						data.append(objj)
-					else:
-						data.pop()
-						break
-				else:
-					data.append(objj)
-	totals['gross_profit_percent'] = str(round(totals['gross_profit'] / totals['selling_amount'] * 100,2)) + "%"
+
+				data.append(objj)
+	if totals['selling_amount'] > 0:
+		totals['gross_profit_percent'] = str(round(totals['gross_profit'] / totals['selling_amount'] * 100,2)) + "%"
 	data.append(totals)
+	print(data)
+	if not filters.get("update_stock") and filters.get("delivery_note"):
+		data = [x for x in data if (x.get('delivery_note') and filters.get("delivery_note") == x.get('delivery_note')) or (x.get("parent_dn") and x.get("parent_dn") == filters.get("delivery_note"))]
 	return columns, data
 
 def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items):
 	items = []
 	total = 0
 	gross_profit = 0
+	dn_name = ""
+	dn_date = ""
 	print("=============================")
 	for xx in sales_invoice_items:
 		if x.sales_invoice == xx.parent:
@@ -129,9 +131,9 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 			total +=  (xx['cogs'] * xx.qty)
 			gross_profit += round(xx.amount - (xx['cogs'] * xx.qty),2)
 			if not filters.get("update_stock"):
-				xx['dn_qty'],xx['delivery_note'],xx['posting_date'] = get_dn_details(xx,delivery_note_items)
+				xx['dn_qty'],dn_name,dn_date = get_dn_details(xx,delivery_note_items)
 			items.append(xx)
-	return items,total,gross_profit
+	return items,total,gross_profit,dn_name,dn_date
 
 def get_cogs(stock_ledger_entry,xx):
 
@@ -143,16 +145,14 @@ def get_cogs(stock_ledger_entry,xx):
 def get_dn_details(xx,delivery_note_items):
 	print("++++++++++++++++++++++++++++++++++++++++++++++")
 	print(xx)
-	print('dn_detail' not in xx)
-	if 'dn_detail' not in xx:
+	print('dn_detail' not in xx or not xx['dn_detail'])
+	if 'dn_detail' not in xx or not xx['dn_detail']:
 		for x in delivery_note_items:
 			if x.si_detail == xx.name:
 				return x.qty,x.parent,x.posting_date
 	else:
-
+		print(xx['dn_detail'])
 		for x in delivery_note_items:
 			if x.name == xx.dn_detail:
-				print(xx.dn_detail)
-				print(x.name)
 				return x.qty,x.parent,x.posting_date
 	return 0,"",""
