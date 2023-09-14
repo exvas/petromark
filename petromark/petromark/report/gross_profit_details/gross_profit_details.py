@@ -48,8 +48,7 @@ def get_conditions(filters):
 	if filters.get("sales_invoice"):
 		conditions += " and SI.name='{0}'".format(filters.get("sales_invoice"))
 
-	if filters.get("update_stock"):
-		conditions += " and SI.update_stock='{0}'".format(filters.get("update_stock"))
+	conditions += " and SI.update_stock='{0}'".format(filters.get("update_stock"))
 	return conditions
 
 def execute(filters=None):
@@ -67,7 +66,7 @@ def execute(filters=None):
 							ORDER BY SI.name ASC
 						""".format(conditions),as_dict=1)
 	sales_invoice_items = frappe.db.sql(""" SELECT * FROm `tabSales Invoice Item`""",as_dict=1)
-	delivery_note_items = frappe.db.sql(""" SELECT DNI.*, DN.posting_date FROM `tabDelivery Note`  DN 
+	delivery_note_items = frappe.db.sql(""" SELECT DNI.*, DN.posting_date, DN.name FROM `tabDelivery Note`  DN 
  											INNER JOIN `tabDelivery Note Item` DNI ON DNI.parent = DN.name
  											""",as_dict=1)
 
@@ -124,7 +123,6 @@ def execute(filters=None):
 	if totals['selling_amount'] > 0:
 		totals['gross_profit_percent'] = str(round(totals['gross_profit'] / totals['selling_amount'] * 100,2)) + "%"
 	data.append(totals)
-	print(data)
 	if not filters.get("update_stock") and filters.get("delivery_note"):
 		data = [x for x in data if (x.get('delivery_note') and filters.get("delivery_note") == x.get('delivery_note')) or (x.get("parent_dn") and x.get("parent_dn") == filters.get("delivery_note"))]
 	return columns, data
@@ -139,34 +137,34 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 	gross_profit = 0
 	dn_name = ""
 	dn_date = ""
-	print("=============================")
 	for xx in sales_invoice_items:
 		if x.sales_invoice == xx.parent:
-			xx['cogs'] = get_cogs(stock_ledger_entry,xx)
-			total +=  (xx['cogs'] * xx.qty)
-			gross_profit += round(xx.amount - (xx['cogs'] * xx.qty),2)
+			xx['dn_qty'], dn_name, dn_date = 0,"",""
 			if not filters.get("update_stock"):
 				xx['dn_qty'],dn_name,dn_date = get_dn_details(xx,delivery_note_items)
+			xx['cogs'] = 0
+			if dn_name:
+				xx['cogs'] = get_cogs(stock_ledger_entry,xx,dn_name)
+			total +=  (xx['cogs'] * xx.qty)
+			gross_profit += round(xx.amount - (xx['cogs'] * xx.qty),2)
+
 			items.append(xx)
 	return items,total,gross_profit,dn_name,dn_date
 
-def get_cogs(stock_ledger_entry,xx):
-
+def get_cogs(stock_ledger_entry,xx,dn_name):
 	for x in stock_ledger_entry:
-		if xx.name == x.voucher_detail_no:
+		print(x)
+		print(dn_name)
+		if dn_name == x.voucher_no:
 			return x.incoming_rate
 	return 0
 
 def get_dn_details(xx,delivery_note_items):
-	print("++++++++++++++++++++++++++++++++++++++++++++++")
-	print(xx)
-	print('dn_detail' not in xx or not xx['dn_detail'])
 	if 'dn_detail' not in xx or not xx['dn_detail']:
 		for x in delivery_note_items:
 			if x.si_detail == xx.name:
 				return x.qty,x.parent,x.posting_date
 	else:
-		print(xx['dn_detail'])
 		for x in delivery_note_items:
 			if x.name == xx.dn_detail:
 				return x.qty,x.parent,x.posting_date
