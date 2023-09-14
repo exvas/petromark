@@ -32,7 +32,8 @@ def get_columns(filters):
 		{"label": _("Selling Amount"), "fieldname": "selling_amount", "fieldtype": "Currency"},
 		{"label": _("COGS"), "fieldname": "cogs", "fieldtype": "Currency", "width": 100},
 		{"label": _("Gross Profit"), "fieldname": "gross_profit", "fieldtype": "Currency"},
-		{"label": _("Gross Profit Percent"), "fieldname": "gross_profit_percent", "fieldtype": "Data"}
+		{"label": _("Gross Profit Percent"), "fieldname": "gross_profit_percent", "fieldtype": "Data"},
+		{"label": _("Status"), "fieldname": "status", "fieldtype": "Data", "width": 200}
 	]
 	return columns
 def get_conditions(filters):
@@ -55,6 +56,7 @@ def execute(filters=None):
 	columns, data = get_columns(filters), []
 	conditions = get_conditions(filters)
 	sales_invoice = frappe.db.sql(""" SELECT 
+ 								SI.is_return,
   								SI.name as sales_invoice,
   								SI.posting_date as sales_invoice_date,
   								SI.customer,
@@ -70,6 +72,7 @@ def execute(filters=None):
  											""",as_dict=1)
 
 	stock_ledger_entry = frappe.db.sql(""" SELECT * FROM `tabStock Ledger Entry` WHERE is_cancelled=0""",as_dict=1)
+	return_items =frappe.db.sql(""" SELECT SII.sales_invoice_item, SII.item_code, SI.status FROM `tabSales Invoice` SI INNER JOIN `tabSales Invoice Item` SII ON SII.parent = SI.name WHERE SI.is_return=1 and SI.docstatus=1 """,as_dict=1)
 	data = []
 	totals = {
 		"sales_invoice": "Total",
@@ -79,6 +82,7 @@ def execute(filters=None):
 		"gross_profit": 0,
 		'bold': True
 	}
+
 	for idx,x in enumerate(sales_invoice):
 		data.append(x)
 		sii,total,gross_profit,dn_name,dn_date = get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items)
@@ -95,6 +99,7 @@ def execute(filters=None):
 		totals['gross_profit'] += x['gross_profit']
 		if len(sii) > 0:
 			for xxx in sii:
+				check_return = check_return_items(xxx,return_items)
 				objj = {
 					"item_code": xxx.item_code,
 					"item_name": xxx.item_name,
@@ -105,7 +110,13 @@ def execute(filters=None):
 					"gross_profit": xxx.amount - (xxx['cogs'] * xxx.qty),
 					"gross_profit_percent": str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)) + "%",
 					"parent_dn": dn_name
+
 				}
+				if check_return:
+					objj['status'] = 'Credit Note Issued'
+				if x.is_return:
+					objj['status'] = 'Return'
+
 				if not filters.get("update_stock"):
 					objj['dn_qty'] = xxx['dn_qty']
 
@@ -117,7 +128,11 @@ def execute(filters=None):
 	if not filters.get("update_stock") and filters.get("delivery_note"):
 		data = [x for x in data if (x.get('delivery_note') and filters.get("delivery_note") == x.get('delivery_note')) or (x.get("parent_dn") and x.get("parent_dn") == filters.get("delivery_note"))]
 	return columns, data
-
+def check_return_items(xxx, return_items):
+	for x in return_items:
+		if x.sales_invoice_item == xxx.name:
+			return True
+	return False
 def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items):
 	items = []
 	total = 0
