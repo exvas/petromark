@@ -68,6 +68,7 @@ def execute(filters=None):
 	sales_invoice_items = frappe.db.sql(""" SELECT * FROm `tabSales Invoice Item`""",as_dict=1)
 	delivery_note_items = frappe.db.sql(""" SELECT DNI.*, DN.posting_date, DN.name FROM `tabDelivery Note`  DN 
  											INNER JOIN `tabDelivery Note Item` DNI ON DNI.parent = DN.name
+ 											WHERE DN.docstatus=1
  											""",as_dict=1)
 
 	stock_ledger_entry = frappe.db.sql(""" SELECT * FROM `tabStock Ledger Entry` WHERE is_cancelled=0""",as_dict=1)
@@ -88,14 +89,18 @@ def execute(filters=None):
 
 		x['cogs'] = total
 		x['gross_profit'] = gross_profit
-		x['gross_profit_percent'] = str(round(gross_profit / x.selling_amount * 100,2)) + "%"
+		x['gross_profit_percent'] = str(round(gross_profit / x.selling_amount * 100,2)) + "%" if not x.is_return else str(round(gross_profit / x.selling_amount * 100,2) * -1) + "%"
 		x['bold'] = True
 		x['delivery_note'] = dn_name
 		x['delivery_note_date'] = dn_date
+		x['dn_qty'] = 0
+
 		totals['si_qty'] += x['si_qty']
+
 		totals['selling_amount'] += x['selling_amount']
 		totals['cogs'] += x['cogs']
 		totals['gross_profit'] += x['gross_profit']
+		totals['dn_qty'] = 0
 		if len(sii) > 0:
 			for xxx in sii:
 				check_return = check_return_items(xxx,return_items)
@@ -107,7 +112,7 @@ def execute(filters=None):
 					"cogs": xxx['cogs'] * xxx.qty,
 					"selling_amount": xxx.amount,
 					"gross_profit": xxx.amount - (xxx['cogs'] * xxx.qty),
-					"gross_profit_percent": str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)) + "%",
+					"gross_profit_percent": str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)) + "%" if not x.is_return else str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2) * -1) + "%",
 					"parent_dn": dn_name
 
 				}
@@ -118,7 +123,8 @@ def execute(filters=None):
 
 				if not filters.get("update_stock"):
 					objj['dn_qty'] = xxx['dn_qty']
-
+					totals['dn_qty'] += xxx['dn_qty']
+					x['dn_qty'] += xxx['dn_qty']
 				data.append(objj)
 	if totals['selling_amount'] > 0:
 		totals['gross_profit_percent'] = str(round(totals['gross_profit'] / totals['selling_amount'] * 100,2)) + "%"
@@ -142,9 +148,7 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 			xx['dn_qty'], dn_name, dn_date = 0,"",""
 			if not filters.get("update_stock"):
 				xx['dn_qty'],dn_name,dn_date = get_dn_details(xx,delivery_note_items)
-			xx['cogs'] = 0
-			if dn_name:
-				xx['cogs'] = get_cogs(stock_ledger_entry,xx,dn_name)
+			xx['cogs'] = get_cogs(stock_ledger_entry,xx,dn_name)
 			total +=  (xx['cogs'] * xx.qty)
 			gross_profit += round(xx.amount - (xx['cogs'] * xx.qty),2)
 
@@ -153,9 +157,9 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 
 def get_cogs(stock_ledger_entry,xx,dn_name):
 	for x in stock_ledger_entry:
-		print(x)
-		print(dn_name)
-		if dn_name == x.voucher_no:
+		if not dn_name and xx.name == x.voucher_detail_no:
+			return x.incoming_rate
+		elif dn_name and dn_name == x.voucher_no:
 			return x.incoming_rate
 	return 0
 
