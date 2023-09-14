@@ -12,7 +12,7 @@ def get_columns(filters):
 	if not filters.get("update_stock"):
 		columns += [
 			{"label": _("Delivery Note"), "fieldname": "delivery_note", "fieldtype": "Data", "width": 180},
-			{"label": _("Delivery Note Date"), "fieldname": "delivery_note_date", "fieldtype": "Date"},
+			{"label": _("Delivery Note Date"), "fieldname": "delivery_note_date", "fieldtype": "Data"},
 		]
 
 	columns += [
@@ -48,7 +48,7 @@ def get_conditions(filters):
 	if filters.get("sales_invoice"):
 		conditions += " and SI.name='{0}'".format(filters.get("sales_invoice"))
 
-	conditions += " and SI.update_stock='{0}'".format(filters.get("update_stock"))
+	conditions += " and SI.update_stock='{0}'".format(0 if not filters.get("update_stock") else filters.get("update_stock"))
 	return conditions
 
 def execute(filters=None):
@@ -147,7 +147,7 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 		if x.sales_invoice == xx.parent:
 			xx['dn_qty'], dn_name, dn_date = 0,"",""
 			if not filters.get("update_stock"):
-				xx['dn_qty'],dn_name,dn_date = get_dn_details(xx,delivery_note_items)
+				xx['dn_qty'],dn_name,dn_date,data = get_dn_details(xx,delivery_note_items)
 			xx['cogs'] = get_cogs(stock_ledger_entry,xx,dn_name)
 			total +=  (xx['cogs'] * xx.qty)
 			gross_profit += round(xx.amount - (xx['cogs'] * xx.qty),2)
@@ -164,12 +164,26 @@ def get_cogs(stock_ledger_entry,xx,dn_name):
 	return 0
 
 def get_dn_details(xx,delivery_note_items):
+	data = []
+	qty = 0
+	parents = ""
+	posting_dates = ""
 	if 'dn_detail' not in xx or not xx['dn_detail']:
 		for x in delivery_note_items:
 			if x.si_detail == xx.name:
-				return x.qty,x.parent,x.posting_date
+				if parents:
+					parents += ","
+				if posting_dates:
+					posting_dates += ","
+				data.append([x.qty,x.parent,x.posting_date])
+				parents += x.parent
+				qty += x.qty
+				posting_dates += str(x.posting_date)
 	else:
 		for x in delivery_note_items:
 			if x.name == xx.dn_detail:
-				return x.qty,x.parent,x.posting_date
-	return 0,"",""
+				data.append([x.qty, x.parent, x.posting_date])
+				parents += x.parent
+				qty += x.qty
+				posting_dates += str(x.posting_date)
+	return qty,parents,posting_dates,data
