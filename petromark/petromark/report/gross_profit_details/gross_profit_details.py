@@ -145,10 +145,10 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 	dn_date = ""
 	for xx in sales_invoice_items:
 		if x.sales_invoice == xx.parent:
-			xx['dn_qty'], dn_name, dn_date = 0,"",""
+			xx['dn_qty'], dn_name, dn_date ,data= 0,"","",[]
 			if not filters.get("update_stock"):
 				xx['dn_qty'],dn_name,dn_date,data = get_dn_details(xx,delivery_note_items)
-			xx['cogs'] = get_cogs(stock_ledger_entry,xx,dn_name)
+			xx['cogs'] = get_cogs(stock_ledger_entry,xx,data)
 			total +=  (xx['cogs'] * xx.qty)
 			gross_profit += round(xx.amount - (xx['cogs'] * xx.qty),2)
 
@@ -156,12 +156,22 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 	return items,total,gross_profit,dn_name,dn_date
 
 def get_cogs(stock_ledger_entry,xx,dn_name):
-	for x in stock_ledger_entry:
-		if not dn_name and xx.name == x.voucher_detail_no:
-			return x.incoming_rate
-		elif dn_name and dn_name == x.voucher_no:
-			return x.incoming_rate
-	return 0
+	print("DN NAAAAAMES")
+	print(dn_name)
+	incoming_rate = 0
+	if len(dn_name) == 0:
+		for x in stock_ledger_entry:
+			if not dn_name and xx.name == x.voucher_detail_no:
+				incoming_rate += x.incoming_rate
+			elif xx and xx == x.voucher_no:
+				incoming_rate += x.incoming_rate
+	else:
+		print("HERE")
+		for xx in dn_name:
+			for x in stock_ledger_entry:
+				if xx[1] and xx[1] == x.voucher_no:
+					incoming_rate += x.incoming_rate
+	return incoming_rate
 
 def get_dn_details(xx,delivery_note_items):
 	data = []
