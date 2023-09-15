@@ -66,9 +66,16 @@ def execute(filters=None):
 							ORDER BY SI.name ASC
 						""".format(conditions),as_dict=1)
 	sales_invoice_items = frappe.db.sql(""" SELECT * FROm `tabSales Invoice Item`""",as_dict=1)
+	# delivery_notes_return = frappe.db.sql(""" SELECT * FROm `tabDelivery Note` WHERE is_return=1""",as_dict=1)
+	# delivery_notes_return_name = [x.return_against for x in delivery_notes_return]
+	# return_delivery = ""
+	# if len(delivery_notes_return_name) == 1:
+	# 	return_delivery += " and DN.name != '{0}' ".format(delivery_notes_return_name[0])
+	# elif len(delivery_notes_return_name) > 1:
+	# 	return_delivery += " and DN.name not in {0} ".format(tuple(delivery_notes_return_name))
 	delivery_note_items = frappe.db.sql(""" SELECT DNI.*, DN.posting_date, DN.name FROM `tabDelivery Note`  DN 
  											INNER JOIN `tabDelivery Note Item` DNI ON DNI.parent = DN.name
- 											WHERE DN.docstatus=1
+ 											WHERE DN.docstatus=1 and DN.is_return = 0
  											""",as_dict=1)
 
 	stock_ledger_entry = frappe.db.sql(""" SELECT * FROM `tabStock Ledger Entry` WHERE is_cancelled=0""",as_dict=1)
@@ -186,14 +193,18 @@ def get_dn_details(xx,delivery_note_items):
 				if posting_dates:
 					posting_dates += ","
 				data.append([x.qty,x.parent,x.posting_date])
-				parents += x.parent
-				qty += x.qty
-				posting_dates += str(x.posting_date)
+				if x.qty - x.returned_qty > 0:
+					parents += x.parent
+					posting_dates += str(x.posting_date)
+				qty += (x.qty - x.returned_qty)
+
 	else:
 		for x in delivery_note_items:
 			if x.name == xx.dn_detail:
 				data.append([x.qty, x.parent, x.posting_date])
-				parents += x.parent
-				qty += x.qty
-				posting_dates += str(x.posting_date)
+				if x.qty - x.returned_qty > 0:
+					parents += x.parent
+					posting_dates += str(x.posting_date)
+				qty += (x.qty - x.returned_qty)
+
 	return qty,parents,posting_dates,data
