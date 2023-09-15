@@ -116,7 +116,7 @@ def execute(filters=None):
 					"item_name": xxx.item_name,
 					"si_qty": xxx.qty,
 					"warehouse": xxx.warehouse,
-					"cogs": xxx['cogs'] * xxx.qty,
+					"cogs": xxx['cogs'],
 					"selling_amount": xxx.amount,
 					"gross_profit": xxx.amount - (xxx['cogs'] * xxx.qty),
 					"gross_profit_percent": str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)) + "%" if not x.is_return else str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2) * -1) + "%",
@@ -156,8 +156,8 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 			if not filters.get("update_stock"):
 				xx['dn_qty'],dn_name,dn_date,data = get_dn_details(xx,delivery_note_items)
 			xx['cogs'] = get_cogs(stock_ledger_entry,xx,data)
-			total +=  (xx['cogs'] * xx.qty)
-			gross_profit += round(xx.amount - (xx['cogs'] * xx.qty),2)
+			total +=  (xx['cogs'])
+			gross_profit += round(xx.amount - (xx['cogs']),2)
 
 			items.append(xx)
 	return items,total,gross_profit,dn_name,dn_date
@@ -192,8 +192,8 @@ def get_dn_details(xx,delivery_note_items):
 					parents += ","
 				if posting_dates:
 					posting_dates += ","
-				data.append([x.qty,x.parent,x.posting_date])
 				if x.qty - x.returned_qty > 0:
+					data.append([x.qty, x.parent, x.posting_date])
 					parents += x.parent
 					posting_dates += str(x.posting_date)
 				qty += (x.qty - x.returned_qty)
@@ -201,8 +201,8 @@ def get_dn_details(xx,delivery_note_items):
 	else:
 		for x in delivery_note_items:
 			if x.name == xx.dn_detail:
-				data.append([x.qty, x.parent, x.posting_date])
 				if x.qty - x.returned_qty > 0:
+					data.append([x.qty, x.parent, x.posting_date])
 					parents += x.parent
 					posting_dates += str(x.posting_date)
 				qty += (x.qty - x.returned_qty)
