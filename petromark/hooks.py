@@ -184,7 +184,7 @@ fixtures = [
 					"Sales Invoice Item-last_customer_rate",
 					"Sales Invoice Item-item_last_rates",
 					"Sales Invoice Item-column_break_100",
-					"POS Profile-display_oem_part_number",
+					"POS Profile-display_oem_part_number"
                 ]
             ]
         ]

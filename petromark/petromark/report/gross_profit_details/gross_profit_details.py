@@ -89,15 +89,27 @@ def execute(filters=None):
 		"gross_profit": 0,
 		'bold': True
 	}
-
+	delivery_notes = []
+	counter = 0
 	for idx,x in enumerate(sales_invoice):
+
 		data.append(x)
-		sii,total,gross_profit,dn_name,dn_date,si = get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items)
-		print("=======================")
-		print(gross_profit)
+		counter += 1
+		sii,total,gross_profit,dn_name,dn_date,sis,si = get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,delivery_note_items)
+		if si:
+			x['sales_invoice'] += sis['sis']
+			si_qty_total = 0
+			for yx in sis['items']:
+				si_qty_total += sis['items'][yx]
+			x['si_qty'] += si_qty_total
+
+			selling_amount_total = 0
+			for yx in sis['rates']:
+				selling_amount_total += sis['rates'][yx]
+			x['selling_amount'] += selling_amount_total
 		x['cogs'] = total
-		x['gross_profit'] = gross_profit
-		x['gross_profit_percent'] = str(round(gross_profit / x.selling_amount * 100,2)) + "%" if not x.is_return else str(round(gross_profit / x.selling_amount * 100,2) * -1) + "%"
+		x['gross_profit'] = x['selling_amount'] - x['cogs']
+		x['gross_profit_percent'] = str(round(x['gross_profit'] / x.selling_amount * 100,2)) + "%" if not x.is_return else str(round(x['gross_profit'] / x.selling_amount * 100,2) * -1) + "%"
 		x['bold'] = True
 		# if not si:
 		x['delivery_note'] = dn_name
@@ -111,18 +123,28 @@ def execute(filters=None):
 		totals['cogs'] += x['cogs']
 		totals['gross_profit'] += x['gross_profit']
 		totals['dn_qty'] = 0
+		print(delivery_notes)
+
+		if 'delivery_note'in x and x['delivery_note'] and x['delivery_note'] in delivery_notes:
+			print(data)
+			print(counter)
+			del data[counter-1]
+
+			continue
 		if len(sii) > 0:
 			for xxx in sii:
 				check_return = check_return_items(xxx,return_items)
+				amount = xxx.amount + sis['rates'][xxx.item_code] if si else xxx.amount
+				qty = xxx.qty + sis['items'][xxx.item_code] if si else xxx.qty
 				objj = {
 					"item_code": xxx.item_code,
 					"item_name": xxx.item_name,
-					"si_qty": xxx.qty,
+					"si_qty": qty,
 					"warehouse": xxx.warehouse,
 					"cogs": xxx['cogs'],
-					"selling_amount": xxx.amount,
-					"gross_profit": xxx.amount - (xxx['cogs']),
-					"gross_profit_percent": str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2)) + "%" if not x.is_return else str(round((( xxx.amount - (xxx['cogs'] * xxx.qty)) / xxx.amount) * 100,2) * -1) + "%",
+					"selling_amount": amount,
+					"gross_profit": amount - (xxx['cogs']),
+					"gross_profit_percent": str(round((( amount - (xxx['cogs'])) / amount) * 100,2)) + "%" if not x.is_return else str(round((( amount - (xxx['cogs'])) / amount) * 100,2) * -1) + "%",
 					"parent_dn": dn_name
 
 				}
@@ -136,6 +158,10 @@ def execute(filters=None):
 					totals['dn_qty'] += xxx['dn_qty']
 					x['dn_qty'] += xxx['dn_qty']
 				data.append(objj)
+				counter += 1
+
+		if 'delivery_note' in x and x['delivery_note']:
+			delivery_notes.append(x['delivery_note'])
 	# data = combine_same_delivery_note(data)
 
 	if totals['selling_amount'] > 0:
@@ -175,19 +201,26 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 	gross_profit = 0
 	dn_name = ""
 	dn_date = ""
+	sis,si = {},False
 	for xx in sales_invoice_items:
 		if x.sales_invoice == xx.parent:
 			xx['dn_qty'], dn_name, dn_date ,data= 0,"","",[]
 			if not filters.get("update_stock"):
-				xx['dn_qty'],dn_name,dn_date,data,si = get_dn_details(xx,delivery_note_items)
+				xx['dn_qty'],dn_name,dn_date,data,sis,si = get_dn_details(xx,delivery_note_items)
 
 			xx['cogs'] = get_cogs(stock_ledger_entry,xx,data)
 
 			total +=  (xx['cogs'])
-			gross_profit = round(xx.amount - (xx['cogs']),2)
+			amount = 0
+			if si:
+				for y in sis['rates']:
+					amount += sis['rates'][y]
+			else:
+				amount = xx.amount
+			gross_profit = round(amount - (xx['cogs']),2)
 
 			items.append(xx)
-	return items,total,gross_profit,dn_name,dn_date,si
+	return items,total,gross_profit,dn_name,dn_date,sis,si
 
 def get_cogs(stock_ledger_entry,xx,dn_name):
 	incoming_rate = 0
@@ -210,6 +243,7 @@ def get_dn_details(xx,delivery_note_items):
 	qty = 0
 	parents = ""
 	posting_dates = ""
+	sis = ""
 	si = False
 	if 'dn_detail' not in xx or not xx['dn_detail']:
 		for x in delivery_note_items:
@@ -239,13 +273,27 @@ def get_dn_details(xx,delivery_note_items):
 					parents += x.parent
 					posting_dates += str(x.posting_date)
 				qty += (x.qty - x.returned_qty)
-				# check_dn(x)
-	return qty,parents,posting_dates,data,si
+				sis = check_dn(x)
+	return qty,parents,posting_dates,data,sis,si
 
-# def check_dn(x):
-# 	si = frappe.db.sql(""" SELECT * FROM `tabSales Invoice` SI
-#  						INNER JOIN `tabSales Invoice Item` SII ON SII.parent = SI.name
-#  					  WHERE SII.delivery_note=%s
-# 					""",x.delivery_note)
-#
-# 	return len([xx.name for xx in si])
+def check_dn(x):
+	sis = ""
+	si = frappe.db.sql(""" SELECT SI.name,SII.item_code, SII.qty,SII.amount FROM `tabSales Invoice` SI
+ 						INNER JOIN `tabSales Invoice Item` SII ON SII.parent = SI.name
+ 					  WHERE SII.delivery_note=%s
+					""",x.delivery_note,as_dict=1)
+	items = {}
+	rates = {}
+
+	for xx in si:
+		if xx.name not in sis:
+			sis +=","
+			sis +=xx.name
+		if xx.item_code not in items:
+			items[xx.item_code] = xx.qty
+			rates[xx.item_code] = xx.amount
+	return {
+		"sis": sis,
+		"items": items,
+		"rates": rates
+	}
