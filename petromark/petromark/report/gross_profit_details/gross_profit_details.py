@@ -242,7 +242,7 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 
 		for yxx in si_:
 			if yxx.item_code not in items_:
-
+				items_.append(yxx.item_code)
 				other_items.append(yxx)
 
 	if len(other_items) > 0:
