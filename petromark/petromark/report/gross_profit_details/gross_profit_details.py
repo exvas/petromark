@@ -203,8 +203,50 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 	dn_name = ""
 	dn_date = ""
 	sis,si = {},False
+	items_ = []
 	for xx in sales_invoice_items:
 		if x.sales_invoice == xx.parent:
+			items_.append(xx.item_code)
+	for xx in sales_invoice_items:
+		if x.sales_invoice == xx.parent:
+			xx['dn_qty'], dn_name, dn_date ,data= 0,"","",[]
+			if not filters.get("update_stock"):
+				xx['dn_qty'],dn_name,dn_date,data,sis,si = get_dn_details(xx,delivery_note_items)
+
+			xx['cogs'] = get_cogs(stock_ledger_entry,xx,data)
+
+			total +=  (xx['cogs'])
+			amount = 0
+			if si:
+				for y in sis['rates']:
+					amount += sis['rates'][y]
+			else:
+				amount = xx.amount
+			gross_profit = round(amount - (xx['cogs']),2)
+
+			items.append(xx)
+	dns = dn_name.split(",")
+	print("DNSSSSSSSSSSSSSSSS")
+	print(dns)
+	other_items = []
+	if len(dns) > 0:
+		condition = ""
+		if len(dns) == 1:
+			condition += " SII.delivery_note='{0}' ".format(dns[0])
+		else:
+			condition += " SII.delivery_note in {0} ".format(tuple(dns))
+		si_ = frappe.db.sql(""" SELECT SI.name,SII.*, SI.posting_date FROM `tabSales Invoice` SI
+								INNER JOIN `tabSales Invoice Item` SII ON SII.parent = SI.name
+							  WHERE {0} and SI.docstatus=1
+							""".format(condition), as_dict=1)
+
+		for yxx in si_:
+			if yxx.item_code not in items_:
+
+				other_items.append(yxx)
+
+	if len(other_items) > 0:
+		for xx in other_items:
 			xx['dn_qty'], dn_name, dn_date ,data= 0,"","",[]
 			if not filters.get("update_stock"):
 				xx['dn_qty'],dn_name,dn_date,data,sis,si = get_dn_details(xx,delivery_note_items)
@@ -279,23 +321,23 @@ def get_dn_details(xx,delivery_note_items):
 	return qty,parents,posting_dates,data,sis,si
 
 def check_dn(x):
+
 	sis = ""
 	dates = ""
-	si = frappe.db.sql(""" SELECT SI.name,SII.item_code, SII.qty,SII.amount, SI.posting_date FROM `tabSales Invoice` SI
+	si = frappe.db.sql(""" SELECT SI.name,SII.item_code, SII.qty,SII.amount, SI.posting_date,SII.dn_detail FROM `tabSales Invoice` SI
  						INNER JOIN `tabSales Invoice Item` SII ON SII.parent = SI.name
  					  WHERE SII.delivery_note=%s and SI.docstatus=1
 					""",x.delivery_note,as_dict=1)
 	items = {}
 	rates = {}
-
 	for xx in si:
 		if xx.name not in sis:
 			if sis:
 				sis +=","
 			sis +=xx.name
-		if dates:
-			dates +=","
-		dates += str(xx.posting_date)
+			if dates:
+				dates +=","
+			dates += str(xx.posting_date)
 		if xx.item_code not in items:
 
 			items[xx.item_code] = xx.qty
@@ -310,3 +352,4 @@ def check_dn(x):
 		"rates": rates,
 		"dates": dates,
 	}
+
