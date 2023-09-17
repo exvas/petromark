@@ -113,6 +113,8 @@ def execute(filters=None):
 		x['gross_profit_percent'] = str(round(x['gross_profit'] / x.selling_amount * 100,2)) + "%" if not x.is_return else str(round(x['gross_profit'] / x.selling_amount * 100,2) * -1) + "%"
 		x['bold'] = True
 		# if not si:
+		print("DNNNNN")
+		print(dn_name)
 		x['delivery_note'] = dn_name
 		x['delivery_note_date'] = dn_date
 
@@ -209,12 +211,19 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 			items_.append(xx.item_code)
 	for xx in sales_invoice_items:
 		if x.sales_invoice == xx.parent:
-			xx['dn_qty'], dn_name, dn_date ,data= 0,"","",[]
+			xx['dn_qty'], dn_names,dn_date ,data= 0,"","",[]
 			if not filters.get("update_stock"):
-				xx['dn_qty'],dn_name,dn_date,data,sis,si = get_dn_details(xx,delivery_note_items)
+				xx['dn_qty'],dn_names,dn_date,data,sis,si = get_dn_details(xx,delivery_note_items)
+			if dn_names:
+				dn_names1 = dn_names.split(",")
+				for xys in dn_names1:
+					dns1 = dn_name.split(",")
 
+					if xys not in dns1:
+						if dn_name:
+							dn_name+=","
+						dn_name +=xys
 			xx['cogs'] = get_cogs(stock_ledger_entry,xx,data)
-
 			total +=  (xx['cogs'])
 			amount = 0
 			if si:
@@ -226,8 +235,6 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 
 			items.append(xx)
 	dns = dn_name.split(",")
-	print("DNSSSSSSSSSSSSSSSS")
-	print(dns)
 	other_items = []
 	if len(dns) > 0:
 		condition = ""
@@ -249,7 +256,7 @@ def get_sales_invoice_items(x, sales_invoice_items,stock_ledger_entry,filters,de
 		for xx in other_items:
 			xx['dn_qty'], dn_name, dn_date ,data= 0,"","",[]
 			if not filters.get("update_stock"):
-				xx['dn_qty'],dn_name,dn_date,data,sis,si = get_dn_details(xx,delivery_note_items)
+				xx['dn_qty'],dn_names,dn_date,data,sis,si = get_dn_details(xx,delivery_note_items)
 
 			xx['cogs'] = get_cogs(stock_ledger_entry,xx,data)
 
@@ -297,6 +304,9 @@ def get_dn_details(xx,delivery_note_items):
 				if posting_dates:
 					posting_dates += ","
 				if x.qty - x.returned_qty > 0:
+					print("HEREEEEE DN NOT IN XX")
+					print(x.parent)
+
 					data.append([x.qty, x.parent, x.posting_date,x.item_code])
 					parents += x.parent
 					posting_dates += str(x.posting_date)
@@ -318,6 +328,8 @@ def get_dn_details(xx,delivery_note_items):
 					posting_dates += str(x.posting_date)
 				qty += (x.qty - x.returned_qty)
 				sis = check_dn(x)
+	print("CHECK PARENTS BEFORE RETURN")
+	print(parents)
 	return qty,parents,posting_dates,data,sis,si
 
 def check_dn(x):
