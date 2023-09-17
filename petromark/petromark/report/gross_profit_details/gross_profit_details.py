@@ -283,7 +283,7 @@ def check_dn(x):
 	dates = ""
 	si = frappe.db.sql(""" SELECT SI.name,SII.item_code, SII.qty,SII.amount, SI.posting_date FROM `tabSales Invoice` SI
  						INNER JOIN `tabSales Invoice Item` SII ON SII.parent = SI.name
- 					  WHERE SII.delivery_note=%s
+ 					  WHERE SII.delivery_note=%s and SI.docstatus=1
 					""",x.delivery_note,as_dict=1)
 	items = {}
 	rates = {}
