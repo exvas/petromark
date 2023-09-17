@@ -290,9 +290,12 @@ def check_dn(x):
 
 	for xx in si:
 		if xx.name not in sis:
-			sis +=","
+			if sis:
+				sis +=","
 			sis +=xx.name
-		dates += "," + str(xx.posting_date)
+		if dates:
+			dates +=","
+		dates += str(xx.posting_date)
 		if xx.item_code not in items:
 
 			items[xx.item_code] = xx.qty
