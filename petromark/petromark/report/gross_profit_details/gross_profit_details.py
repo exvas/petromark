@@ -147,7 +147,7 @@ def execute(filters=None):
 					"cogs": xxx['cogs'] ,
 					"selling_amount": amount,
 					"gross_profit": amount - (xxx['cogs']),
-					"gross_profit_percent": str(round((( amount - (xxx['cogs'])) / amount) * 100,2)) + "%" if not x.is_return else str(round((( amount - (xxx['cogs'])) / amount) * 100,2) * -1) + "%",
+					"gross_profit_percent": str(round((( amount - (xxx['cogs'])) / amount) * 100,2)) + "%" if not x.is_return and amount > 0 else str(round((( amount - (xxx['cogs'])) / amount) * 100,2) * -1) + "%" if amount > 0 else 0,
 					"parent_dn": dn_name
 
 				}
