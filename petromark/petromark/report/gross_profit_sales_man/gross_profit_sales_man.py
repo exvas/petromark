@@ -17,6 +17,7 @@ def get_columns(filters):
 
 	columns += [
 		{"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link", "options": "Customer"},
+		{"label": _("Sales Person"), "fieldname": "sales_person", "fieldtype": "Data"},
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Data"},
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data"},
 		{"label": _("Warehouse"), "fieldname": "warehouse", "fieldtype": "Data"},
@@ -57,7 +58,6 @@ def execute(filters=None):
 	join_query = ""
 	where_query = ""
 	if filters.get("sales_person"):
-		join_query = """INNER JOIN `tabSales Team` ST ON SI.name = ST.parent"""
 		where_query = """and ST.sales_person = '{0}'""".format(filters.get("sales_person"))
 	sales_invoice = frappe.db.sql(""" 
 		SELECT 
@@ -65,17 +65,21 @@ def execute(filters=None):
 			SI.name as sales_invoice,
 			SI.posting_date as sales_invoice_date,
 			SI.customer,
+			ST.sales_person,
 			SI.total_qty as si_qty,
 			SI.grand_total as selling_amount
 		FROM 
 			`tabSales Invoice` SI
-		{1}
+		INNER JOIN 
+			`tabSales Team` ST 
+		ON 
+			SI.name = ST.parent
 		WHERE 
 			SI.docstatus=1 {0}
-			{2}
+			{1}
 		ORDER BY 
 			SI.name ASC
-	""".format(conditions, join_query, where_query),as_dict=1)
+	""".format(conditions, where_query),as_dict=1)
 	sales_invoice_items = frappe.db.sql(""" SELECT * FROM `tabSales Invoice Item`""",as_dict=1)
 	# delivery_notes_return = frappe.db.sql(""" SELECT * FROm `tabDelivery Note` WHERE is_return=1""",as_dict=1)
 	# delivery_notes_return_name = [x.return_against for x in delivery_notes_return]
@@ -92,19 +96,22 @@ def execute(filters=None):
 	stock_ledger_entry = frappe.db.sql(""" SELECT * FROM `tabStock Ledger Entry` WHERE is_cancelled=0""",as_dict=1)
 	return_items =frappe.db.sql(""" 
 	SELECT 
-		SII.sales_invoice_item, SII.item_code, SI.status 
+		SII.sales_invoice_item, SII.item_code, SI.status, ST.sales_person
 	FROM 
 		`tabSales Invoice` SI 
 	INNER JOIN 
 		`tabSales Invoice Item` SII 
 	ON 
 		SII.parent = SI.name 
-	{0}
+	INNER JOIN 
+			`tabSales Team` ST 
+		ON 
+			SI.name = ST.parent
 	WHERE 
 		SI.is_return=1 and 
 		SI.docstatus=1
-		{1}	
-	""".format(join_query, where_query),as_dict=1)
+		{0}	
+	""".format(where_query),as_dict=1)
 	data = []
 	totals = {
 		"sales_invoice": "Total",
