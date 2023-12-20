@@ -110,7 +110,7 @@ def execute(filters=None):
 			x['selling_amount'] = selling_amount_total
 		x['cogs'] = total
 		x['gross_profit'] = x['selling_amount'] - x['cogs']
-		x['gross_profit_percent'] = str(round(x['gross_profit'] / x.selling_amount * 100,2)) + "%" if not x.is_return else str(round(x['gross_profit'] / x.selling_amount * 100,2) * -1) + "%"
+		x['gross_profit_percent'] = str(round(x['gross_profit'] / (x.selling_amount * 100 if x.selling_amount > 0 else 1),2)) + "%" if not x.is_return else str(round(x['gross_profit'] / (x.selling_amount * 100 if x.selling_amount > 0 else 1),2) * -1) + "%"
 		x['bold'] = True
 		# if not si:
 		print("DNNNNN")
