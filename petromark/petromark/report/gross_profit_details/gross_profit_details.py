@@ -278,15 +278,15 @@ def get_cogs(stock_ledger_entry,xx,dn_name):
 		for x in stock_ledger_entry:
 
 			if not dn_name and xx.name == x.voucher_detail_no and x.item_code == xx.item_code:
-				incoming_rate += (x.incoming_rate * abs(x.actual_qty))
+				incoming_rate += abs(x.stock_value_difference)
 			elif xx and xx == x.voucher_no and x.item_code == xx.item_code:
-				incoming_rate += (x.incoming_rate * abs(x.actual_qty))
+				incoming_rate += abs(x.stock_value_difference)
 	else:
 		print("HERE")
 		for xx in dn_name:
 			for x in stock_ledger_entry:
 				if xx[1] and xx[1] == x.voucher_no and x.item_code == xx[3]:
-					incoming_rate += (x.incoming_rate * abs(x.actual_qty))
+					incoming_rate += abs(x.stock_value_difference)
 	return incoming_rate
 
 def get_dn_details(xx,delivery_note_items):
