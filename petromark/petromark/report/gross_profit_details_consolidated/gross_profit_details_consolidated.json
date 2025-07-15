@@ -1,5 +1,5 @@
 {
- "add_total_row": 1,
+ "add_total_row": 0,
  "add_translate_data": 0,
  "columns": [],
  "creation": "2025-07-15 10:05:40.836469",
@@ -11,7 +11,7 @@
  "is_standard": "Yes",
  "letter_head": "",
  "letterhead": null,
- "modified": "2025-07-15 10:27:10.595372",
+ "modified": "2025-07-15 16:12:22.861502",
  "modified_by": "Administrator",
  "module": "Petromark",
  "name": "Gross Profit Details Consolidated",
