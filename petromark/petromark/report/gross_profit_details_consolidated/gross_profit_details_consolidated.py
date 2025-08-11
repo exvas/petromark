@@ -60,8 +60,11 @@ def get_data(filters):
         INNER JOIN
             `tabSales Invoice Item` sii ON si.name = sii.parent
         LEFT JOIN
-            `tabDelivery Note Item` dni ON dni.against_sales_invoice = si.name 
-            AND dni.item_code = sii.item_code
+            `tabDelivery Note Item` dni ON (
+                (dni.against_sales_invoice = si.name AND dni.item_code = sii.item_code)
+                OR (dni.si_detail = sii.name)
+                OR (dni.against_sales_order = sii.sales_order AND dni.item_code = sii.item_code AND sii.sales_order IS NOT NULL AND sii.sales_order != '')
+            )
             AND dni.docstatus = 1
         LEFT JOIN
             `tabDelivery Note` dn ON dn.name = dni.parent 
@@ -79,6 +82,7 @@ def get_data(filters):
     data = frappe.db.sql(query, filters, as_dict=True)
     
     for row in data:
+        
         row.delivery_note_id = row.delivery_note_id or ''
         row.delivery_date = row.delivery_date or ''
         row.delivery_note_status = row.delivery_note_status or ''
