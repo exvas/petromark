@@ -186,6 +186,21 @@ fixtures = [
                 ]
             ]
         ]
+    },
+    {
+        "doctype": "Property Setter",
+        "filters": [
+            [
+                "name",
+                "in",
+                [
+                    "Sales Invoice Item-price_list_rate-read_only",
+                    "Sales Invoice Item-price_list_rate-in_list_view",
+                    "Sales Invoice Item-rate-read_only",
+                    "Sales Invoice Item-discount_amount-in_list_view"
+                ]
+            ]
+        ]
     }
 ]
 
