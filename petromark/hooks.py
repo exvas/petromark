@@ -188,16 +188,26 @@ fixtures = [
         ]
     },
     {
+        # Sales Invoice item grid: enter price in Price List Rate, discount in
+        # Discount Amount -> Rate/Amount are the computed net.
+        # Layout: Item(3) Qty(2) Price List Rate(2) Discount Amount(1) Amount(2)
         "doctype": "Property Setter",
         "filters": [
             [
-                "name",
+                "doc_type",
+                "=",
+                "Sales Invoice Item"
+            ],
+            [
+                "field_name",
                 "in",
                 [
-                    "Sales Invoice Item-price_list_rate-read_only",
-                    "Sales Invoice Item-price_list_rate-in_list_view",
-                    "Sales Invoice Item-rate-read_only",
-                    "Sales Invoice Item-discount_amount-in_list_view"
+                    "item_code",
+                    "qty",
+                    "price_list_rate",
+                    "discount_amount",
+                    "rate",
+                    "amount"
                 ]
             ]
         ]
