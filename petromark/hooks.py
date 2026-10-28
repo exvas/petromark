@@ -92,7 +92,13 @@ app_license = "MIT"
 doc_events = {
     "Payment Entry": {
         "before_insert": "petromark.petromark.events.payment_entry.set_sales_person_from_invoice"
-    }
+    },
+    "Sales Invoice": {
+        "validate": "petromark.petromark.events.sales_invoice.validate_margin"
+    },
+    "POS Invoice": {
+        "validate": "petromark.petromark.events.sales_invoice.validate_margin"
+    },
 }
 
 # Scheduled Tasks
@@ -182,7 +188,14 @@ fixtures = [
 					"Sales Invoice Item-last_customer_rate",
 					"Sales Invoice Item-item_last_rates",
 					"Sales Invoice Item-column_break_100",
-					"POS Profile-display_oem_part_number"
+					"POS Profile-display_oem_part_number",
+					"Selling Settings-custom_margin_protection_sb",
+					"Selling Settings-custom_enable_minimum_margin",
+					"Selling Settings-custom_minimum_margin_percent",
+					"Selling Settings-custom_margin_action",
+					"Selling Settings-custom_margin_cb",
+					"Selling Settings-custom_margin_bypass_role",
+					"Selling Settings-custom_block_missing_valuation"
                 ]
             ]
         ]
