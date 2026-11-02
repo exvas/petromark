@@ -17,6 +17,7 @@ taxes and of any distributed invoice level discount.
 
 import frappe
 from frappe import _
+from frappe.permissions import AUTOMATIC_ROLES
 from frappe.utils import flt
 
 # Guards against blocking a sale because of a sub-cent rounding difference.
@@ -164,6 +165,58 @@ def _report(doc, settings, violations):
 		)
 
 	if blocking:
+		message += _approval_hint(settings)
 		frappe.throw(message, title=_("Minimum Margin Violation"))
 	else:
 		frappe.msgprint(message, title=_("Below Minimum Margin"), indicator="orange")
+
+
+def _approvers(role):
+	"""Enabled users who hold the bypass role."""
+	if not role:
+		return []
+
+	return frappe.db.sql_list(
+		"""
+		SELECT DISTINCT u.name
+		FROM `tabHas Role` hr
+		INNER JOIN `tabUser` u ON u.name = hr.parent
+		WHERE hr.parenttype = 'User' AND hr.role = %s AND u.enabled = 1
+		ORDER BY u.name
+		""",
+		role,
+	)
+
+
+def _approval_hint(settings):
+	"""Tell whoever is blocked who can let this invoice through.
+
+	Without this the block is a dead end: the cashier is told no and has
+	nobody to go to. The three bad configurations are called out by name
+	because each one looks like a working setup in Selling Settings.
+	"""
+	role = settings.bypass_role
+
+	if not role:
+		return "<br><br>" + _(
+			"No approver is configured. Set {0} in Selling Settings so somebody can approve these."
+		).format(frappe.bold(_("Role Allowed To Sell Below Margin")))
+
+	# Frappe keeps these out of the role picker on the User form, so no user
+	# can ever hold one of them - choosing one leaves nobody able to approve.
+	if role in AUTOMATIC_ROLES:
+		return "<br><br>" + _(
+			"{0} is a built-in role that cannot be granted to any user, so nobody can approve this."
+			" Choose a normal role in Selling Settings and assign it to the approver."
+		).format(frappe.bold(role))
+
+	approvers = _approvers(role)
+	if not approvers:
+		return "<br><br>" + _(
+			"Nobody has the {0} role yet, so nobody can approve this."
+			" Assign that role to the approver first."
+		).format(frappe.bold(role))
+
+	return "<br><br>" + _("Ask one of these users to approve ({0}): {1}").format(
+		role, frappe.bold(", ".join(approvers))
+	)

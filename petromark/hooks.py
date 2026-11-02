@@ -224,6 +224,22 @@ fixtures = [
                 ]
             ]
         ]
+    },
+    {
+        # Bypass role for minimum margin protection. Carries no permissions of
+        # its own; it is only read by validate_margin. Frappe refuses to grant
+        # Administrator/All/Guest/Desk User to a user, so the approver needs a
+        # real role like this one.
+        "doctype": "Role",
+        "filters": [
+            [
+                "name",
+                "in",
+                [
+                    "Margin Approver"
+                ]
+            ]
+        ]
     }
 ]
 
