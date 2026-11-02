@@ -142,6 +142,44 @@ frappe.query_reports["Rack Location Tracking"] = {
 	},
 
 	"onload": function (report) {
+		// Copies the rack that is in force onto the master, so the master and
+		// the older Rack Stock Balance report stop disagreeing with the POS.
+		report.page.add_inner_button(__("Update Rack Master from Receipts"), function () {
+			const rows = (frappe.query_report.data || []).filter(
+				(r) => r.status === "Mismatch" || r.status === "Not in Master"
+			);
+			if (!rows.length) {
+				frappe.msgprint(__("Nothing to update - no Mismatch or Not in Master rows are shown."));
+				return;
+			}
+			frappe.confirm(
+				__("Write the current rack onto the Rack Master for {0} item(s)?", [rows.length]) +
+					"<br><br>" +
+					__("Rows that already agree, and rows with no rack, are left alone."),
+				function () {
+					frappe.call({
+						method:
+							"petromark.petromark.report.rack_location_tracking.rack_location_tracking.sync_rack_master",
+						args: { filters: frappe.query_report.get_filter_values() },
+						freeze: true,
+						freeze_message: __("Updating Rack Master..."),
+						callback: function (r) {
+							if (!r.message) return;
+							frappe.msgprint({
+								title: __("Rack Master Updated"),
+								indicator: "green",
+								message: __("Created {0}, updated {1}.", [
+									r.message.created,
+									r.message.updated,
+								]),
+							});
+							frappe.query_report.refresh();
+						},
+					});
+				}
+			);
+		});
+
 		report.page.add_inner_button(__("Needs Attention"), function () {
 			frappe.query_report.set_filter_value("status", "Needs Attention");
 		});

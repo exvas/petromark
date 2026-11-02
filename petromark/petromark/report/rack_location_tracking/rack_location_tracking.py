@@ -18,6 +18,8 @@ same way the POS does, and additionally shows every source side by side so the
 difference between them can be found and corrected.
 """
 
+import json
+
 import frappe
 from frappe import _
 from frappe.utils import cstr, flt, get_datetime, getdate
@@ -682,3 +684,75 @@ def _summary(view, data):
 		)
 
 	return summary
+
+
+# ---------------------------------------------------------------------------
+# correcting the master
+# ---------------------------------------------------------------------------
+
+
+@frappe.whitelist()
+def sync_rack_master(filters=None):
+	"""Copy the rack that is in force onto the Logical Rack master.
+
+	The rack a receipt carries is the one the POS honours, but readers that
+	only know the master - the Rack Stock Balance report, anybody editing the
+	master by hand - still see the old value or nothing at all. This closes
+	that gap for exactly the rows the report flags as Mismatch or Not in
+	Master; rows that already agree, and rows with no rack anywhere, are left
+	alone because there is nothing to copy.
+	"""
+	if not frappe.has_permission("Logical Rack", "write"):
+		frappe.throw(
+			_("You are not permitted to change the Logical Rack master."),
+			frappe.PermissionError,
+		)
+
+	if isinstance(filters, str):
+		filters = json.loads(filters)
+	filters = frappe._dict(filters or {})
+
+	if not filters.get("company"):
+		frappe.throw(_("Company is mandatory."))
+
+	sources = _available_sources()
+	if not sources["master"]:
+		frappe.throw(_("This site has no Logical Rack master to update."))
+
+	racks = _Racks(filters, sources)
+	_columns, rows = _current_by_item(filters, racks)
+
+	# a new master row is scoped to the profile that sells from the warehouse
+	profile_by_warehouse = {}
+	for name, warehouse in frappe.db.sql("""SELECT name, warehouse FROM `tabPOS Profile`""") or []:
+		if warehouse:
+			profile_by_warehouse.setdefault(warehouse, name)
+	preferred_profile = filters.get("pos_profile")
+
+	created = updated = 0
+	for row in rows:
+		if row["status"] not in (STATUS_MISMATCH, STATUS_NOT_IN_MASTER):
+			continue
+		if not row["current_rack"]:
+			continue
+
+		existing = frappe.db.get_value(
+			"Logical Rack", {"item": row["item_code"]}, ["name", "rack_id"], as_dict=True
+		)
+		if existing:
+			if cstr(existing.rack_id).strip() == row["current_rack"]:
+				continue
+			frappe.db.set_value("Logical Rack", existing.name, "rack_id", row["current_rack"])
+			updated += 1
+		else:
+			doc = frappe.get_doc({
+				"doctype": "Logical Rack",
+				"item": row["item_code"],
+				"rack_id": row["current_rack"],
+				"pos_profile": preferred_profile or profile_by_warehouse.get(row["warehouse"]),
+			})
+			doc.insert(ignore_permissions=True)
+			created += 1
+
+	frappe.db.commit()
+	return {"created": created, "updated": updated, "considered": len(rows)}
